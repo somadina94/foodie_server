@@ -36,4 +36,15 @@ const connectDB = async () => {
     console.log("DB connected successfully!!!");
 };
 
-connectDB();
+void connectDB().then(async () => {
+  const { ensureRedisReady } = await import("./config/redisConnection.js");
+  const redisOk = await ensureRedisReady();
+  if (!redisOk) {
+    console.warn(
+      "[Redis] BullMQ workers not started — kitchen/rider queues will not run until Redis is up.",
+    );
+    return;
+  }
+  const { registerWorkers } = await import("./queues/workers.js");
+  registerWorkers();
+});

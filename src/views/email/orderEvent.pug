@@ -1,0 +1,8 @@
+extends baseEmail
+
+block content
+  h2(style='margin-top:0')= headline
+  p= detailLine
+  p
+    strong Order reference:&nbsp;
+    span= orderId

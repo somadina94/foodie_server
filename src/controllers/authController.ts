@@ -6,13 +6,17 @@ import User from "../models/userModel.js";
 import Email from "../utils/email.js";
 
 import type { IUser } from "../types/user.js";
-import type { JwtPayload } from "jsonwebtoken";
+import type { JwtPayload, SignOptions } from "jsonwebtoken";
 import type { Request, Response, NextFunction } from "express";
 // A helper function to sign jwt
 const signToken = (id: string) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET!, {
-    expiresIn: "90d",
-  });
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    throw new Error("JWT_SECRET is not configured");
+  }
+  return jwt.sign({ id }, secret, {
+    expiresIn: process.env.JWT_EXPIRES_IN ?? "90d",
+  } as SignOptions);
 };
 
 // A function to send reponse with token
@@ -87,11 +91,6 @@ export const login = catchAsync(
     // Check is user exists and if password is correct
     if (!user || !(await user.correctPassword(password, user.password))) {
       return next(new AppError("Incorrect email or password", 401));
-    }
-
-    // Check if user is admin to deny access
-    if (user.role !== "user") {
-      return next(new AppError("This route is for customers only", 400));
     }
 
     // Send response

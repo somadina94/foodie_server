@@ -67,6 +67,34 @@ class Email {
       "Your password reset token (valid for only 10 minutes)"
     );
   }
+
+  async sendOrderEvent(
+    subject: string,
+    headline: string,
+    detailLine: string,
+    orderId: string,
+  ) {
+    const html = pug.renderFile(
+      path.join(__dirname, "../views/email", "orderEvent.pug"),
+      {
+        firstName: this.firstName,
+        headline,
+        detailLine,
+        orderId,
+        subject,
+      },
+    );
+
+    const mailOptions = {
+      from: this.from,
+      to: this.to,
+      subject,
+      html,
+      text: htmlToText(html),
+    };
+
+    await this.newTransport().sendMail(mailOptions);
+  }
 }
 
 export default Email;

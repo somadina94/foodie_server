@@ -1,6 +1,22 @@
 version: "3.8"
 
 services:
+  # Started automatically with `docker compose up`; stopped with `docker compose down` (e.g. deploy.sh before rebuild).
+  redis:
+    image: redis:7-alpine
+    container_name: foodie-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - foodie-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+
   api:
     build:
       context: .
@@ -20,13 +36,19 @@ services:
         - COMPANY_NAME=${COMPANY_NAME}
         - VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY}
         - VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY}
+        - RIDER_ASSIGN_RETRY_MS=${RIDER_ASSIGN_RETRY_MS}
+        - RIDER_ASSIGN_MAX_ATTEMPTS=${RIDER_ASSIGN_MAX_ATTEMPTS}
     container_name: foodie-server
     ports:
       - "4800:4800"
     environment:
       NODE_ENV: production
+      REDIS_URL: redis://redis:6379
     env_file:
       - .env
+    depends_on:
+      redis:
+        condition: service_healthy
     restart: unless-stopped
     networks:
       - foodie-network

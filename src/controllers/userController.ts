@@ -1,16 +1,16 @@
 import User from "../models/userModel.js";
 import catchAsync from "../utils/catchAsync.js";
 import AppError from "../utils/appError.js";
+import { getRedisConnection, RIDERS_AVAILABLE_KEY } from "../config/redisConnection.js";
 
 import type { Request, Response, NextFunction } from "express";
 import type { IUser } from "../types/user.js";
-import type { ObjectId } from "mongoose";
 
 // GET ALL USERS
 export const getAllUsers = catchAsync(
   async (req: Request, res: Response, next: NextFunction) => {
     // Fetch users
-    const users = await User.find({ role: "user" });
+    const users = await User.find().sort({ createdAt: -1 });
 
     // Send response
     res.status(200).json({
@@ -103,28 +103,58 @@ export const setWebPushToken = catchAsync(
       return next(new AppError("You are not logged in", 401));
     }
 
-    let existing = false;
-
-    for (const token of user.webPushToken || []) {
-      if (token.endpoint === webPushToken.endpoint) {
-        existing = true;
-        break;
-      }
+    if (!Array.isArray(user.webPushToken)) {
+      user.webPushToken = [];
     }
 
+    const existing = user.webPushToken.some((t) => t.endpoint === webPushToken.endpoint);
     if (existing) {
-      return next(new AppError("User already subscribed", 401));
+      return res.status(200).json({
+        status: "success",
+        message: "Already subscribed to web push on this device",
+      });
     }
 
-    if (!existing) {
-      user.webPushToken?.push(webPushToken);
-      await user.save({ validateBeforeSave: false });
-    }
+    user.webPushToken.push(webPushToken);
+    await user.save({ validateBeforeSave: false });
 
     res.status(200).json({
       status: "success",
-      message: "Web push notification subscribtion successful",
+      message: "Web push notification subscription successful",
       data: { user },
+    });
+  },
+);
+
+export const getRiderAvailability = catchAsync(
+  async (req: Request, res: Response, next: NextFunction) => {
+    const id = req.user!._id.toString();
+    const redis = getRedisConnection();
+    const n = await redis.sismember(RIDERS_AVAILABLE_KEY, id);
+    const available = n === 1;
+    res.status(200).json({
+      status: "success",
+      data: { available },
+    });
+  },
+);
+
+export const setRiderAvailability = catchAsync(
+  async (req: Request, res: Response, next: NextFunction) => {
+    const { available } = req.body as { available?: boolean };
+    if (typeof available !== "boolean") {
+      return next(new AppError("Field available (boolean) is required", 400));
+    }
+    const id = req.user!._id.toString();
+    const redis = getRedisConnection();
+    if (available) {
+      await redis.sadd(RIDERS_AVAILABLE_KEY, id);
+    } else {
+      await redis.srem(RIDERS_AVAILABLE_KEY, id);
+    }
+    res.status(200).json({
+      status: "success",
+      data: { available },
     });
   },
 );

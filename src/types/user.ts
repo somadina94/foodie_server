@@ -3,7 +3,7 @@ import type { WebPushToken } from "./webPushToken.js";
 
 export interface IUser extends Document {
   name: string;
-  role: "user" | "admin" | "manager";
+  role: "user" | "admin" | "rider" | "vendor";
   email: string;
   phone: string;
   address: string;

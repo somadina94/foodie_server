@@ -17,7 +17,10 @@ import {
   setExpoPushToken,
   deleteMe,
   setWebPushToken,
+  getRiderAvailability,
+  setRiderAvailability,
 } from "../controllers/userController.js";
+import { updateUserRole } from "../controllers/adminController.js";
 
 const router = express.Router();
 
@@ -28,6 +31,10 @@ router.post("/forgotPassword", forgotPassword);
 router.post("/resetPassword", resetPassowrd);
 
 router.use(protect);
+
+router.patch("/role/:id", restrictTo("admin"), updateUserRole);
+router.get("/rider/availability", restrictTo("rider"), getRiderAvailability);
+router.patch("/rider/availability", restrictTo("rider"), setRiderAvailability);
 
 router.patch("/updatePassword", updatePassword);
 

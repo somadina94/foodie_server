@@ -57,7 +57,7 @@ fi
 echo "📁 Creating logs directory..."
 mkdir -p logs
 
-# Stop and remove existing containers
+# Stop and remove existing containers (API + Redis from docker-compose.yml)
 echo "🛑 Stopping existing containers..."
 $DOCKER_COMPOSE down
 
@@ -80,7 +80,7 @@ $DOCKER_COMPOSE ps
 echo "📋 Recent logs:"
 $DOCKER_COMPOSE logs --tail=20
 
-echo "✅ Docker deployment completed!"
+echo "✅ Docker deployment completed! (Redis and API run together; both stop on compose down.)"
 echo "📊 Check status with: $DOCKER_COMPOSE ps"
 echo "📋 View logs with: $DOCKER_COMPOSE logs -f"
 echo "🔄 Restart with: $DOCKER_COMPOSE restart"
