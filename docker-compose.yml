@@ -5,8 +5,9 @@ services:
   redis:
     image: redis:7-alpine
     container_name: foodie-redis
-    ports:
-      - "6379:6379"
+    # No host port: API reaches Redis at redis:6379 on foodie-network only.
+    # Publishing 6379 here conflicts if host Redis or another stack already uses it.
+    # Shell access: docker exec -it foodie-redis redis-cli
     networks:
       - foodie-network
     restart: unless-stopped
