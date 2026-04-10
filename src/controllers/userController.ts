@@ -161,13 +161,13 @@ export const setRiderAvailability = catchAsync(
 
 export const setExpoPushToken = catchAsync(
   async (req: Request, res: Response, next: NextFunction) => {
-    const { expoPushToken } = req.body;
-
-    if (!expoPushToken) {
+    const raw = (req.body as { expoPushToken?: unknown }).expoPushToken;
+    if (typeof raw !== "string" || !raw.trim()) {
       return next(
-        new AppError("Please provide a valid expo notifications token", 400),
+        new AppError("Please provide a valid expo notifications token (string)", 400),
       );
     }
+    const expoPushToken = raw.trim();
 
     const user = await User.findById(req.user!._id);
     if (!user) {
