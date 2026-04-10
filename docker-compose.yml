@@ -1,0 +1,36 @@
+version: "3.8"
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - NODE_ENV=${NODE_ENV}
+        - PORT=${PORT}
+        - DATABASE=${DATABASE}
+        - DATABASE_PASSWORD=${DATABASE_PASSWORD}
+        - JWT_SECRET=${JWT_SECRET}
+        - JWT_EXPIRES_IN=${JWT_EXPIRES_IN}
+        - EMAIL_TO=${EMAIL_TO}
+        - EMAIL_FROM=${EMAIL_FROM}
+        - EMAIL_HOST=${EMAIL_HOST}
+        - EMAIL_ADDRESS=${EMAIL_ADDRESS}
+        - EMAIL_PASSWORD=${EMAIL_PASSWORD}
+        - COMPANY_NAME=${COMPANY_NAME}
+        - VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY}
+        - VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY}
+    container_name: foodie-server
+    ports:
+      - "4800:4800"
+    environment:
+      NODE_ENV: production
+    env_file:
+      - .env
+    restart: unless-stopped
+    networks:
+      - foodie-network
+
+networks:
+  foodie-network:
+    driver: bridge
