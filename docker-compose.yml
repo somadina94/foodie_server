@@ -1,5 +1,8 @@
 version: "3.8"
 
+# Default project name is the parent dir ("server"); same as 4ksports/server → both used project "server" and service "api", so deploys replaced each other.
+name: foodie-server
+
 services:
   # Started automatically with `docker compose up`; stopped with `docker compose down` (e.g. deploy.sh before rebuild).
   redis:
