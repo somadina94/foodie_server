@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import Email from "../utils/email.js";
 import Order from "../models/orderModel.js";
 import { sendExpoPush, sendWebPushToUser } from "../utils/pushNotifications.js";
@@ -80,13 +81,56 @@ async function emailUser(user: IUser, subject: string, headline: string, detail:
   }
 }
 
-async function pushUser(user: IUser, title: string, body: string, orderId: string) {
-  const data = { orderId, type: "order" };
+async function pushUser(
+  user: IUser,
+  title: string,
+  body: string,
+  orderId: string,
+  notificationType = "order",
+) {
+  const data = { orderId, type: notificationType };
   const expo = user.expoPushToken ?? [];
   await sendExpoPush(expo, title, body, data);
   await sendWebPushToUser(user, title, body, data);
   if (user._id) {
-    await recordInAppNotification(user._id, title, body, orderId, "order");
+    await recordInAppNotification(user._id, title, body, orderId, notificationType);
+  }
+}
+
+/** Push + in-app for order chat — notifies customer, vendor, and rider except the sender. */
+export async function notifyOrderChatMessage(
+  orderId: string,
+  senderId: mongoose.Types.ObjectId,
+  senderName: string,
+  textPreview: string,
+): Promise<void> {
+  try {
+    const order = await Order.findById(orderId)
+      .populate("customer")
+      .populate("vendorUser")
+      .populate("riderUser");
+    if (!order) return;
+
+    const oid = order._id.toString();
+    const short = oid.slice(-6);
+    const title = `New message — Order #${short}`;
+    const preview =
+      textPreview.length > 100 ? `${textPreview.slice(0, 100)}…` : textPreview;
+    const body = `${senderName}: ${preview}`;
+
+    const recipients: (IUser | null | undefined)[] = [
+      order.customer as unknown as IUser,
+      order.vendorUser as unknown as IUser | null,
+      order.riderUser as unknown as IUser | null,
+    ];
+
+    for (const user of recipients) {
+      if (!user?._id) continue;
+      if (user._id.equals(senderId)) continue;
+      await pushUser(user, title, body, oid, "order_message");
+    }
+  } catch (e) {
+    console.error("notifyOrderChatMessage failed:", e);
   }
 }
 

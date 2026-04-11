@@ -5,6 +5,8 @@ import OrderMessage from "../models/orderMessageModel.js";
 import catchAsync from "../utils/catchAsync.js";
 import AppError from "../utils/appError.js";
 import type { IOrder } from "../types/order.js";
+import type { IUser } from "../types/user.js";
+import { notifyOrderChatMessage } from "../services/orderNotifications.js";
 
 function uid(req: Request): string {
   return req.user!._id.toString();
@@ -142,6 +144,11 @@ export const sendOrderMessage = catchAsync(
     if (!populated) {
       return next(new AppError("Message not created", 500));
     }
+
+    const sender = req.user as IUser;
+    const senderName =
+      typeof sender.name === "string" && sender.name.trim() ? sender.name.trim() : "Someone";
+    void notifyOrderChatMessage(order._id.toString(), req.user!._id as mongoose.Types.ObjectId, senderName, trimmed);
 
     res.status(201).json({
       status: "success",
