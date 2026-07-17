@@ -158,6 +158,8 @@ export async function sendWebPushToUser(
   if (!vapidConfigured) return;
 
   const subs = user.webPushToken ?? [];
+  const expiredEndpoints: string[] = [];
+
   for (const sub of subs) {
     try {
       await webpush.sendNotification(
@@ -167,8 +169,31 @@ export async function sendWebPushToUser(
         },
         JSON.stringify({ title, body, ...data }),
       );
-    } catch (e) {
-      console.error("Web push failed:", e);
+    } catch (e: unknown) {
+      const status =
+        e && typeof e === "object" && "statusCode" in e
+          ? Number((e as { statusCode?: number }).statusCode)
+          : undefined;
+      // 404/410 = subscription gone; drop it so we stop retrying forever.
+      if (status === 404 || status === 410) {
+        expiredEndpoints.push(sub.endpoint);
+      } else {
+        console.error("Web push failed:", e);
+      }
+    }
+  }
+
+  if (expiredEndpoints.length > 0 && user._id) {
+    try {
+      await User.updateOne(
+        { _id: user._id },
+        { $pull: { webPushToken: { endpoint: { $in: expiredEndpoints } } } },
+      );
+      console.warn(
+        `Cleared ${expiredEndpoints.length} expired web push subscription(s) for user ${user._id}`,
+      );
+    } catch (err) {
+      console.error("Failed to clear expired web push subscriptions:", err);
     }
   }
 }
