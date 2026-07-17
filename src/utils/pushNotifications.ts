@@ -1,5 +1,6 @@
 import webpush from "web-push";
 import type { IUser } from "../types/user.js";
+import User from "../models/userModel.js";
 
 let vapidConfigured = false;
 
@@ -18,16 +19,37 @@ function ensureWebPushVapid() {
 
 /** Expo tokens look like ExponentPushToken[...] or ExpoPushToken[...]. */
 export function isExpoPushToken(token: string): boolean {
-  return /^(ExponentPushToken|ExpoPushToken)\[.+]$/.test(token.trim());
+  return (
+    token.startsWith("ExponentPushToken[") ||
+    token.startsWith("ExpoPushToken[")
+  );
 }
 
 type ExpoPushTicket =
   | { status: "ok"; id: string }
   | { status: "error"; message: string; details?: { error?: string } };
 
+/** Drop DeviceNotRegistered tokens from users (same idea as Luxestate clearExpoToken). */
+async function clearInvalidExpoTokens(invalid: Set<string>): Promise<void> {
+  if (invalid.size === 0) return;
+  const list = [...invalid];
+  try {
+    await User.updateMany(
+      { expoPushToken: { $in: list } },
+      { $pullAll: { expoPushToken: list } },
+    );
+    console.warn(
+      "Cleared invalid Expo push tokens:",
+      list.map((t) => `${t.slice(0, 28)}…`),
+    );
+  } catch (e) {
+    console.error("Failed to clear invalid Expo tokens:", e);
+  }
+}
+
 /**
- * Send via Expo Push API. Logs per-ticket errors (e.g. InvalidCredentials / DeviceNotRegistered).
- * A 200 HTTP response does NOT mean every ticket succeeded — always inspect tickets.
+ * Send via Expo Push API (same shape as Luxestate notificationHelpers).
+ * @see https://docs.expo.dev/push-notifications/sending-notifications/
  */
 export async function sendExpoPush(
   expoTokens: string[],
@@ -62,6 +84,8 @@ export async function sendExpoPush(
     channelId: "default",
     priority: "high" as const,
   }));
+
+  const invalidTokens = new Set<string>();
 
   // Expo accepts one object or an array (max 100). Chunk for safety.
   const chunkSize = 100;
@@ -105,10 +129,14 @@ export async function sendExpoPush(
         console.error(
           `Expo push ticket error [${code}] for ${token}: ${ticket.message}`,
         );
+        if (code === "DeviceNotRegistered" && token !== "(unknown)") {
+          invalidTokens.add(token);
+        }
         if (code === "InvalidCredentials" || code === "Unauthorized") {
           console.error(
             "→ Android FCM credentials are missing/invalid on Expo. " +
-              "Run `eas credentials` → Android → Push Notifications (FCM V1) and upload your Firebase service-account JSON.",
+              "Run `eas credentials` → Android → Push Notifications (FCM V1) and upload your Firebase service-account JSON " +
+              "(same steps used for Luxestate).",
           );
         }
       });
@@ -116,6 +144,8 @@ export async function sendExpoPush(
       console.error("Expo push request failed:", e);
     }
   }
+
+  await clearInvalidExpoTokens(invalidTokens);
 }
 
 export async function sendWebPushToUser(
