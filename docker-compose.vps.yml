@@ -1,0 +1,46 @@
+# Production stack for EC2 / VPS — used by ./deploy.sh (project: foodie-server-vps)
+#
+# Normal deploy: API image from GHCR (built in GitHub Actions). VPS only pulls.
+# Redis stays a standard Docker Hub image. Secrets stay in host .env.
+
+name: foodie-server-vps
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: foodie-redis
+    networks:
+      - foodie-server-vps-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+
+  api:
+    image: ${FOODIE_SERVER_IMAGE:-ghcr.io/somadina94/foodie_server:latest}
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: foodie-server
+    ports:
+      - "${PORT:-4800}:${PORT:-4800}"
+    environment:
+      NODE_ENV: production
+      REDIS_URL: redis://redis:6379
+    env_file:
+      - .env
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    volumes:
+      - ./logs:/app/logs
+    networks:
+      - foodie-server-vps-network
+
+networks:
+  foodie-server-vps-network:
+    driver: bridge
